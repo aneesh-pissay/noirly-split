@@ -17,6 +17,8 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       ...(init?.body instanceof FormData
         ? {}
         : { "Content-Type": "application/json" }),
+      // Proves the request came from this app's own scripts (see proxy.ts).
+      "X-Noirly-CSRF": "1",
       ...(init?.headers ?? {}),
     },
   });
@@ -274,10 +276,10 @@ export const api = {
       body: JSON.stringify(body),
     });
   },
-  uploadReceipt(file: File) {
+  uploadReceipt(groupId: string, file: File) {
     const form = new FormData();
     form.append("file", file);
-    return request<{ url: string }>("/api/uploads", {
+    return request<{ url: string }>(`/api/groups/${groupId}/receipts`, {
       method: "POST",
       body: form,
     });

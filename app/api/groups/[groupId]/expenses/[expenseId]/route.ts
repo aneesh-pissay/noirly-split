@@ -16,6 +16,8 @@ import {
 } from "@/src/server/expenses/build";
 import { recurrenceFromInput } from "@/src/server/expenses/lifecycle";
 import { requireGroupMembership } from "@/src/server/groups/access";
+import { isGroupReceiptUrl } from "@/src/server/storage/receipts";
+import { assertExpensePeople } from "@/src/server/expenses/people";
 import { mapExpense } from "@/src/server/mappers";
 import { ActivityEvent, Expense, GroupMember } from "@/src/server/models";
 import { publishRealtime } from "@/src/server/realtime/publish";
@@ -124,15 +126,12 @@ export async function PATCH(request: Request, { params }: Params) {
           }).lean()
         ).map((m) => m.userId.toString()),
       );
-      const payers =
-        merged.payers ??
-        (merged.paidByUserId
-          ? [{ userId: merged.paidByUserId, amountPaid: merged.amount }]
-          : []);
-      for (const p of payers) {
-        if (!memberIds.has(p.userId)) {
-          throw new ApiError(400, "invalid_request", "Payer must be a member");
-        }
+      // Same rules as creating: payers, participants and allocations are members.
+      assertExpensePeople(memberIds, merged);
+
+      // Only a newly set receipt is checked; an older one stays as it was.
+      if (body.receiptUrl && !isGroupReceiptUrl(groupId, body.receiptUrl)) {
+        throw new ApiError(400, "invalid_request", "Upload the receipt to this group first");
       }
 
       const parts = buildExpenseParts(merged, group.baseCurrency);

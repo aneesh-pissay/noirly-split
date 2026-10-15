@@ -1,5 +1,7 @@
 "use client";
 
+import { safeLocalPath } from "@/src/lib/safe-path";
+
 import { useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { SplitBusyScreen } from "@/src/components/SplitBusyScreen";
@@ -8,9 +10,7 @@ const AUTH_MESSAGE = "noirly-auth";
 const AUTH_STORAGE_KEY = "noirly-auth";
 
 function safeNext(value: string | null): string {
-  return value && value.startsWith("/") && !value.startsWith("//")
-    ? value
-    : "/";
+  return safeLocalPath(value, "/");
 }
 
 function PopupCompleteInner() {

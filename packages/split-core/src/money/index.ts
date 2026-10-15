@@ -22,6 +22,32 @@ export function applyFx(amount: MinorAmount, rate: number): MinorAmount {
   return Math.round(amount * rate);
 }
 
+/**
+ * Converts parts of one amount at `rate` so they add up exactly to the
+ * converted whole. Rounding each part on its own can leave the parts a unit or
+ * two off the total, and those units become debts nobody can settle. Here
+ * every part is rounded down, then the leftover units go to the parts with the
+ * largest fractions (earlier parts win ties).
+ */
+export function convertParts(
+  parts: readonly MinorAmount[],
+  rate: number,
+): MinorAmount[] {
+  const total = applyFx(sumMinor(parts), rate);
+  const exact = parts.map((part) => part * rate);
+  const result = exact.map((value) => Math.floor(value));
+  let leftover = total - sumMinor(result);
+  const byFraction = exact
+    .map((value, index) => ({ index, fraction: value - Math.floor(value) }))
+    .sort((a, b) => b.fraction - a.fraction || a.index - b.index);
+  for (const { index } of byFraction) {
+    if (leftover <= 0) break;
+    result[index]! += 1;
+    leftover -= 1;
+  }
+  return result;
+}
+
 export function sumMinor(amounts: readonly MinorAmount[]): MinorAmount {
   return amounts.reduce((acc, n) => acc + n, 0);
 }

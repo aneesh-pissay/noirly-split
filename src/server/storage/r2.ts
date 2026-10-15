@@ -1,5 +1,6 @@
 import {
   DeleteObjectCommand,
+  GetObjectCommand,
   PutObjectCommand,
   S3Client,
 } from "@aws-sdk/client-s3";
@@ -91,6 +92,23 @@ export async function uploadBuffer(
   );
 
   return { key, publicUrl: getPublicUrl(key) };
+}
+
+/** Stores an object under an exact key; for private files that are never linked publicly. */
+export async function putObject(key: string, buffer: Buffer, contentType: string): Promise<void> {
+  const bucket = process.env.R2_BUCKET_NAME;
+  if (!bucket) throw new Error("R2_BUCKET_NAME is required");
+  await getR2Client().send(
+    new PutObjectCommand({ Bucket: bucket, Key: key, Body: buffer, ContentType: contentType }),
+  );
+}
+
+export async function getObjectBuffer(key: string): Promise<Buffer> {
+  const bucket = process.env.R2_BUCKET_NAME;
+  if (!bucket) throw new Error("R2_BUCKET_NAME is required");
+  const result = await getR2Client().send(new GetObjectCommand({ Bucket: bucket, Key: key }));
+  if (!result.Body) throw new Error("Empty object");
+  return Buffer.from(await result.Body.transformToByteArray());
 }
 
 export async function deleteObject(key: string) {

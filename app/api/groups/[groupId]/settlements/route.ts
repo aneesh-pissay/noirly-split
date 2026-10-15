@@ -67,6 +67,15 @@ export async function POST(request: Request, { params }: Params) {
         "from and to must be different people",
       );
     }
+    // A payment clears a debt, so only the person who paid or the person who
+    // was paid may record it; nobody can wipe out other people's debts.
+    if (ctx.userId !== body.fromUserId && ctx.userId !== body.toUserId) {
+      throw new ApiError(
+        403,
+        "forbidden",
+        "Only the person who paid or the person who was paid can record a payment",
+      );
+    }
 
     const settlement = await withDb(async () => {
       const { group } = await requireGroupMembership(groupId, ctx.userId);

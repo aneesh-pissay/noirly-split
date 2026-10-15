@@ -278,7 +278,7 @@ export function ExpenseForm({
     setUploading(true);
     setError(null);
     try {
-      const { url } = await api.uploadReceipt(file);
+      const { url } = await api.uploadReceipt(groupId, file);
       setReceiptUrl(url);
     } catch (err) {
       setError((err as Error).message);

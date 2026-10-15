@@ -1,6 +1,6 @@
 import { Types } from "mongoose";
 import { z } from "zod";
-import { applyFx, sumMinor } from "@/src/core/money";
+import { applyFx, convertParts, sumMinor } from "@/src/core/money";
 import {
   calculateEqualSplit,
   calculatePercentageSplit,
@@ -36,7 +36,8 @@ const expenseFieldsSchema = z.object({
     .enum(["food", "travel", "rent", "utilities", "other"])
     .nullable()
     .optional(),
-  receiptUrl: z.string().url().nullable().optional(),
+  /** A receipt uploaded to this group (checked against the group by the route). */
+  receiptUrl: z.string().max(300).nullable().optional(),
   /** @deprecated prefer payers[] */
   paidByUserId: z.string().min(1).optional(),
   payers: z.array(payerSchema).optional(),
@@ -214,18 +215,23 @@ export function buildExpenseParts(
     (input.allocations ?? []).map((a) => [a.userId, a]),
   );
 
-  const payers = payerInputs.map((p) => ({
+  // Converted together, so what was paid and what is owed both add up to
+  // amountInBase exactly and the group's balances still net to zero.
+  const paidInBase = convertParts(payerInputs.map((p) => p.amountPaid), fxRateToBase);
+  const owedInBase = convertParts(shares.map((s) => s.amountOwed), fxRateToBase);
+
+  const payers = payerInputs.map((p, i) => ({
     userId: new Types.ObjectId(p.userId),
     amountPaid: p.amountPaid,
-    amountPaidInBase: applyFx(p.amountPaid, fxRateToBase),
+    amountPaidInBase: paidInBase[i]!,
   }));
 
-  const splits = shares.map((s) => {
+  const splits = shares.map((s, i) => {
     const meta = allocationByUser.get(s.userId);
     return {
       userId: new Types.ObjectId(s.userId),
       amountOwed: s.amountOwed,
-      amountOwedInBase: applyFx(s.amountOwed, fxRateToBase),
+      amountOwedInBase: owedInBase[i]!,
       percentage: meta?.percentage ?? null,
       shares: meta?.shares ?? null,
     };

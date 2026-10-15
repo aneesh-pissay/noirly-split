@@ -1,14 +1,14 @@
 "use client";
 
+import { safeLocalPath } from "@/src/lib/safe-path";
+
 import { Suspense, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { signIn } from "next-auth/react";
 import { SplitBusyScreen } from "@/src/components/SplitBusyScreen";
 
 function safeNext(value: string | null): string {
-  return value && value.startsWith("/") && !value.startsWith("//")
-    ? value
-    : "/";
+  return safeLocalPath(value, "/");
 }
 
 function LoginPopupInner() {

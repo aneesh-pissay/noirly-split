@@ -1,3 +1,4 @@
+import { safeLocalPath } from "@/src/lib/safe-path";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { AuthShell } from "@noirly-dev/ui";
@@ -15,7 +16,7 @@ export default async function LoginPage({
 }) {
   const { next } = await searchParams;
   const redirectTo =
-    next && next.startsWith("/") && !next.startsWith("//") ? next : "/home";
+    safeLocalPath(next, "/home");
 
   return (
     <AuthShell

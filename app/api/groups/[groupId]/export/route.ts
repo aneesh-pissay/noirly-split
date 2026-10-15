@@ -1,3 +1,4 @@
+import { countedExpensesFilter } from "@/src/server/expenses/counted";
 import { Types } from "mongoose";
 import { formatMoney } from "@/src/core/money";
 import {
@@ -26,10 +27,7 @@ export async function GET(_request: Request, { params }: Params) {
 
     const csv = await withDb(async () => {
       const { group } = await requireGroupMembership(groupId, ctx.userId);
-      const expenses = await Expense.find({
-        groupId: new Types.ObjectId(groupId),
-        deletedAt: null,
-      })
+      const expenses = await Expense.find(countedExpensesFilter(groupId))
         .sort({ date: 1, createdAt: 1 })
         .lean();
 

@@ -18,6 +18,8 @@ import {
   spawnDueRecurringExpenses,
 } from "@/src/server/expenses/lifecycle";
 import { requireGroupMembership } from "@/src/server/groups/access";
+import { isGroupReceiptUrl } from "@/src/server/storage/receipts";
+import { assertExpensePeople } from "@/src/server/expenses/people";
 import { mapExpense } from "@/src/server/mappers";
 import { ActivityEvent, Expense, GroupMember } from "@/src/server/models";
 import { publishRealtime } from "@/src/server/realtime/publish";
@@ -85,25 +87,10 @@ export async function POST(request: Request, { params }: Params) {
         ).map((m) => m.userId.toString()),
       );
 
-      const payers =
-        body.payers ??
-        (body.paidByUserId
-          ? [{ userId: body.paidByUserId, amountPaid: body.amount }]
-          : []);
+      assertExpensePeople(memberIds, body);
 
-      for (const p of payers) {
-        if (!memberIds.has(p.userId)) {
-          throw new ApiError(400, "invalid_request", "Payer must be a member");
-        }
-      }
-      for (const id of body.participantIds) {
-        if (!memberIds.has(id)) {
-          throw new ApiError(
-            400,
-            "invalid_request",
-            "All participants must be members",
-          );
-        }
+      if (body.receiptUrl && !isGroupReceiptUrl(groupId, body.receiptUrl)) {
+        throw new ApiError(400, "invalid_request", "Upload the receipt to this group first");
       }
 
       const parts = buildExpenseParts(body, group.baseCurrency);

@@ -75,6 +75,25 @@ export async function POST(_request: Request, { params }: Params) {
         userId: new Types.ObjectId(ctx.userId),
       }).lean();
 
+      // An invite sent to an address is for that person only, and works once.
+      // (A link without an address is a shareable link, as before.)
+      if (invite.email && !existing) {
+        if (invite.email !== ctx.email.trim().toLowerCase()) {
+          throw new ApiError(
+            403,
+            "forbidden",
+            "This invite was sent to a different email address. Sign in with that account, or ask for a new link.",
+          );
+        }
+        const claimed = await GroupInvite.updateOne(
+          { _id: invite._id, acceptedAt: null },
+          { $set: { acceptedAt: new Date() } },
+        );
+        if (claimed.modifiedCount !== 1) {
+          throw new ApiError(410, "expired", "This invite has already been used");
+        }
+      }
+
       if (!existing) {
         await GroupMember.create({
           groupId: group._id,

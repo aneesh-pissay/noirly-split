@@ -1,12 +1,15 @@
+import { safeLocalPath } from "@/src/lib/safe-path";
 import { auth } from "@/auth";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { guardApiRequest } from "@/src/server/security/api-guard";
 
-export default async function middleware(request: NextRequest) {
+// Formerly middleware.ts (renamed to proxy in Next.js 16; same behaviour).
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   if (pathname.startsWith("/api/")) {
-    return NextResponse.next();
+    return (await guardApiRequest(request)) ?? NextResponse.next();
   }
 
   const isLanding = pathname === "/";
@@ -26,8 +29,9 @@ export default async function middleware(request: NextRequest) {
 
   if (session?.user?.id && isLogin) {
     const next = request.nextUrl.searchParams.get("next");
-    if (next && next.startsWith("/") && !next.startsWith("//")) {
-      return NextResponse.redirect(new URL(next, request.url));
+    const safeNext = safeLocalPath(next, "");
+    if (safeNext) {
+      return NextResponse.redirect(new URL(safeNext, request.url));
     }
     return NextResponse.redirect(new URL("/home", request.url));
   }

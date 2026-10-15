@@ -1,3 +1,4 @@
+import { countedExpensesFilter } from "@/src/server/expenses/counted";
 import { Types } from "mongoose";
 import { computeNets } from "@/src/core/balances/net";
 import { simplifyDebts } from "@/src/core/balances/simplify";
@@ -33,9 +34,7 @@ export async function GET(_request: Request, { params }: Params) {
         users.map((u) => [u._id.toString(), u.displayName]),
       );
 
-      const expenses = await Expense.find({
-        groupId: new Types.ObjectId(groupId),
-      }).lean();
+      const expenses = await Expense.find(countedExpensesFilter(groupId)).lean();
       const settlements = await Settlement.find({
         groupId: new Types.ObjectId(groupId),
       }).lean();

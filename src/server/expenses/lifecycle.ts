@@ -32,7 +32,21 @@ export async function spawnDueRecurringExpenses(
     if (!rule) continue;
     if (rule.endAt && rule.endAt.getTime() < now.getTime()) continue;
 
-    const nextDate = toISODate(rule.nextRunAt);
+    // Claim this occurrence by moving the schedule on in one atomic step.
+    // Opening a group runs this, so two people opening it at once would both
+    // see the same due date; only the one whose update lands creates it.
+    const dueAt = rule.nextRunAt;
+    const followingRunAt = addWeeklyMonthly(dueAt, {
+      frequency: rule.frequency,
+      interval: rule.interval,
+    });
+    const claimed = await Expense.updateOne(
+      { _id: template._id, "recurrenceRule.nextRunAt": dueAt },
+      { $set: { "recurrenceRule.nextRunAt": followingRunAt } },
+    );
+    if (claimed.modifiedCount !== 1) continue;
+
+    const nextDate = toISODate(dueAt);
     const created = await Expense.create({
       groupId: template.groupId,
       amount: template.amount,
@@ -52,13 +66,6 @@ export async function spawnDueRecurringExpenses(
       splits: template.splits,
       deletedAt: null,
     });
-
-    rule.nextRunAt = addWeeklyMonthly(rule.nextRunAt, {
-      frequency: rule.frequency,
-      interval: rule.interval,
-    });
-    template.markModified("recurrenceRule");
-    await template.save();
 
     const mapped = mapExpense(created);
     await ActivityEvent.create({

@@ -16,6 +16,7 @@ type CacheEntry = {
 };
 
 const CACHE_TTL_MS = 45_000;
+const CACHE_MAX_ENTRIES = 5000;
 const cache = new Map<string, CacheEntry>();
 
 function tokenKey(token: string): string {
@@ -49,6 +50,10 @@ export async function fetchIdentityUserInfo(
 
   const response = await fetch(`${identityIssuer()}/api/oidc/userinfo`, {
     method: "GET",
+    // A slow or redirecting Identity must not hang requests or send the
+    // access token somewhere else.
+    redirect: "error",
+    signal: AbortSignal.timeout(8000),
     headers: {
       Accept: "application/json",
       Authorization: `Bearer ${accessToken}`,
@@ -64,11 +69,22 @@ export async function fetchIdentityUserInfo(
   if (!body.sub) {
     throw new Error("Identity userinfo missing sub");
   }
+  // Only a verified email is the person's: anyone can register any address.
+  if (body.email_verified !== true) {
+    throw new Error("Identity email is not verified");
+  }
 
+  // Bounded, so a flood of distinct tokens can't grow memory without limit.
+  if (cache.size >= CACHE_MAX_ENTRIES) cache.clear();
   cache.set(key, {
     userInfo: body,
     expiresAt: Date.now() + CACHE_TTL_MS,
   });
 
   return body;
+}
+
+/** Test helper */
+export function clearIdentityUserInfoCache() {
+  cache.clear();
 }
